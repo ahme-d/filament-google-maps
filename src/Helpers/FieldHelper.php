@@ -39,7 +39,28 @@ class FieldHelper
             ->whereInstanceOf(Field::class)->keyBy(fn($field) => $field->getName());
 
         if ($flatFields->has($field)) {
-            return $flatFields->get($field)->getStatePath();
+            $fieldComponent = $flatFields->get($field);
+            $statePath = $fieldComponent->getStatePath();
+
+            // In Filament v4, the DOM id typically has 'data.' prefix but getStatePath() might not include it
+            // Try to get the actual ID if available
+            if (method_exists($fieldComponent, 'getId')) {
+                try {
+                    $id = $fieldComponent->getId();
+                    if (! empty($id)) {
+                        return $id;
+                    }
+                } catch (\Throwable $e) {
+                    // getId() might throw if container not initialized, continue to fallback
+                }
+            }
+
+            // Fallback: If statePath doesn't already have data prefix and looks like it needs one
+            if (! str_starts_with($statePath, 'data.') && ! str_contains($statePath, '.')) {
+                return 'data.' . $statePath;
+            }
+
+            return $statePath;
         }
 
         return null;
